@@ -27,7 +27,12 @@ def test_read_i_check():
 
 
 def test_read_tlevel():
-    ps.read_tlevel(path="tests/test_data/T_LEVEL.OUT")
+    df = ps.read_tlevel(path="tests/test_data/T_LEVEL.OUT")
+    assert not df.empty, "DataFrame is empty!"
+    # Ensure no naive NaN representation caused by Pandas 3.0 string alignment
+    assert not df['vTop'].isna().any(), "vTop contains NaNs!"
+    assert not df['vBot'].isna().any(), "vBot contains NaNs!"
+    assert len(df) > 0, "No rows were parsed!"
     return
 
 

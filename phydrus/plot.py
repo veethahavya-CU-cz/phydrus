@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import pandas as pd
 
 
 class Plots:
@@ -47,8 +48,10 @@ class Plots:
         _, ax = plt.subplots(figsize=figsize, **kwargs)
 
         top = self.ml.profile.loc[:, "x"].max()
-        w = self.ml.profile.loc[:, "h"].max()
-        w = w + 0.2 * w
+        w = self.ml.profile.loc[:, "h"].max(skipna=True)
+        if pd.isna(w):
+            w = 0  # Fallback if entirely NaN
+        w = w + 0.2 * abs(w)
 
         # Set colors by color_by
         col = self.ml.materials["water"][color_by]

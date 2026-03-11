@@ -34,7 +34,22 @@ def read_profile(path="PROFILE.OUT"):
         Pandas with the profile data
 
     """
-    data = _read_file(path=path, start="depth", idx_col="n")
+    # Detect if the file uses 'depth' or 'x' as the depth header
+    start_str = "depth"
+    idx_col = "n"
+    try:
+        with open(path, "r") as f:
+            content = f.read(2000) # Read beginning of file
+            if " x " in content or " x\n" in content or " x\r" in content:
+                start_str = "x"
+                idx_col = None # Use positional index mapping or numeric
+            elif "depth" in content.lower():
+                start_str = "depth"
+                idx_col = "n"
+    except Exception:
+        pass
+
+    data = _read_file(path=path, start=start_str, idx_col=idx_col)
     return data
 
 
@@ -127,17 +142,6 @@ def read_tlevel(path="T_LEVEL.OUT", usecols=None):
     """
     data = _read_file(path=path, start="rTop", idx_col="Time",
                       remove_first_row=True, usecols=usecols)
-    def safe_to_numeric_coerce(val):
-        try:
-            return to_numeric(val)
-        except ValueError:
-            from numpy import nan
-            return nan
-    
-    # Pre-process columns to include units before removing the first row
-    # _read_file removes the first row if remove_first_row=True, so it doesn't give us the units easily.
-    # WAIT! _read_file drops the first row IF remove_first_row=True. So the units are already dropped when it gets here.
-    data.index = [safe_to_numeric_coerce(idx) for idx in data.index]
     return data
 
 
@@ -211,30 +215,46 @@ def _read_file(path, start, end="end", usecols=None, idx_col=None,
 
     """
     with open(path) as file:
+        lines = file.readlines()
+        s = None
+        e = len(lines)
+        
         # Find the starting line
-        for i, line in enumerate(file.readlines()):
-            if start in line:
+        for i, line in enumerate(lines):
+            if s is None and start in line:
                 s = i
-            elif end in line:
+            elif s is not None and end in line:
                 e = i
                 break
+                
+        if s is None:
+            raise ValueError(f"Could not find start string '{start}' in {path}")
         file.seek(0)  # Go back to start of file
 
         # Read data into a Pandas DataFrame
-        data = read_csv(file, skiprows=s, nrows=e - s - 2, usecols=usecols,
+        data = read_csv(file, skiprows=s, nrows=e - s - 1, usecols=usecols,
                         index_col=idx_col, skipinitialspace=True,
                         sep=r"\s+")
 
-        def safe_to_numeric(col):
-            try:
-                return to_numeric(col)
-            except ValueError:
-                return col
+        def convert_to_numeric(df):
+            # Convert columns
+            df = df.apply(lambda col: to_numeric(col, errors="coerce"))
+            # Convert index
+            df.index = to_numeric(df.index, errors="coerce")
+            return df
 
         if remove_first_row:
-            data = data.drop(index=data.index[0]).apply(safe_to_numeric)
-        else:
-            data = data.apply(safe_to_numeric)
+            # Check if first row is a units row (usually contains strings like [L], [T], etc.)
+            # We check the first row's index and values for brackets.
+            try:
+                # Convert the entire first row to a list of strings and check for brackets
+                check_strs = [str(data.index[0])] + [str(v) for v in data.iloc[0].values]
+                if any("[" in s or "]" in s for s in check_strs):
+                    data = data.drop(index=data.index[0])
+            except (IndexError, AttributeError):
+                pass
+            
+        data = convert_to_numeric(data)
 
     return data
 
@@ -262,17 +282,42 @@ def read_obs_node(path="OBS_NODE.OUT", nodes=None, conc=False, cols=None):
 
     """
     data = {}
+    start = None
+    end = None
+
     with open(path) as file:
-        # Find the starting times to read the information
         for i, line in enumerate(file.readlines()):
-            if "time" in line:
-                start = i
+            # Match the actual data header: "time  h  theta  Temp..."
+            # Case-insensitive match for robust parsing
+            l_lower = line.lower()
+            if "time" in l_lower and "theta" in l_lower:
+                start = i      # this line becomes the pandas column header
+                data_start = i + 2  # skip header + units row
             elif "end" in line:
                 end = i
                 break
 
-    df1 = read_csv(path, skiprows=start, index_col=0, nrows=end - start - 1,
+    if start is None or end is None:
+        return data
+
+    # Read the full table (header + units + data), using the header line as columns
+    df1 = read_csv(path, skiprows=start, index_col=0,
+                   nrows=end - start - 1,
                    skipinitialspace=True, sep=r"\s+", engine="c")
+
+    # Check if first row is a units row (usually contains strings like [L], [T], etc.)
+    try:
+        # Convert the entire first row to a list of strings and check for brackets
+        check_strs = [str(df1.index[0])] + [str(v) for v in df1.iloc[0].values]
+        if any("[" in s or "]" in s for s in check_strs):
+            df1 = df1.drop(index=df1.index[0])
+    except (IndexError, AttributeError):
+        pass
+
+    # Convert data and index to numeric
+    df1 = df1.apply(lambda col: to_numeric(col, errors="coerce"))
+    df1.index = to_numeric(df1.index, errors="coerce")
+
     if cols is None:
         cols = ["h", "theta", "Temp"]
     if conc:
@@ -311,38 +356,66 @@ def read_nod_inf(path="NOD_INF.OUT", times=None):
         Dictionary with the time as a key and a Pandas DataFrame as a value.
 
     """
+    # Fixed column names from NOD_INF.OUT header
+    _cols = ["Node", "Depth", "Head", "Moisture", "K", "C",
+             "Flux", "Sink", "Kappa", "v/KsTop", "Temp"]
+
     use_times = []
-    start = []
-    end = []
+    time_line_indices = []   # Line numbers of each "Time:" line
 
     with open(path) as file:
-        # Find the starting times to read the information
-        for i, line in enumerate(file.readlines()):
-            if "Time" in line and "Date" not in line:
-                time = line.replace(" ", "").split(":")[1].replace("\n", "")
-                use_times.append(float(time))
-            elif "Node" in line:
-                start.append(i)
-            elif "end" in line:
-                end.append(i)
-        if times is None:
-            times = use_times
-        # Read the data into a Pandas DataFrame
-        data = {}
-        for s, e, time in zip(start, end, use_times):
-            if time in times:
-                file.seek(0)  # Go back to start of file
-                data[time] = read_csv(file, skiprows=s,
-                                      skipinitialspace=True,
-                                      sep=r"\s+",
-                                      nrows=e - s - 2)
-                data[time] = data[time].drop([0])
-                def safe_to_numeric(col):
-                    try:
-                        return to_numeric(col)
-                    except ValueError:
-                        return col
-                data[time] = data[time].apply(safe_to_numeric)
+        lines = file.readlines()
+
+    # Pass 1: find all "Time:" line positions and their values
+    for i, line in enumerate(lines):
+        if " Time:" in line and "Date" not in line:
+            try:
+                t = float(line.split(":")[1].strip())
+                use_times.append(t)
+                time_line_indices.append(i)
+            except ValueError:
+                pass
+
+    if times is None:
+        times = use_times
+
+    # Build block boundaries: each block goes from its "Time:" line
+    # to just before the next "Time:" line (or end of file)
+    block_ends = time_line_indices[1:] + [len(lines)]
+
+    def safe_to_numeric(col):
+        try:
+            return to_numeric(col)
+        except ValueError:
+            return col
+
+    data = {}
+    for t_idx, t_end, time in zip(time_line_indices, block_ends, use_times):
+        if time not in times:
+            continue
+        # Within this block, find the "Node  Depth  Head..." header line
+        node_header = None
+        for j in range(t_idx, t_end):
+            if "Node" in lines[j] and "Depth" in lines[j]:
+                node_header = j
+                break
+        if node_header is None:
+            continue
+        # Data starts 3 lines after the Node header:
+        #   node_header+1: units [L][L][-]...
+        #   node_header+2: blank
+        #   node_header+3: first data row
+        data_start = node_header + 3
+        block_lines = [l for l in lines[data_start:t_end] if l.strip()]
+        if not block_lines:
+            continue
+        from io import StringIO
+        df = read_csv(StringIO("".join(block_lines)), sep=r"\s+",
+                      skipinitialspace=True, header=None, names=_cols)
+        df = df.apply(safe_to_numeric)
+        df.index = range(1, len(df) + 1)
+        data[time] = df
+
     if len(data) == 1:
         return next(iter(data.values()))
     else:

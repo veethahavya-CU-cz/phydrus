@@ -1,5 +1,11 @@
 */Ex_hydrus/*
-examples/
+
+**/*.DAT
+**/*.dat
+**/*.OUT
+**/*.out
+**/*.IN
+**/*.in
 
 *.o
 

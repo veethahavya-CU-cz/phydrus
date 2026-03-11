@@ -55,7 +55,7 @@ class Model:
 
     def __init__(self, exe_name, ws_name, name="model", description=None,
                  length_unit="cm", time_unit="days", mass_units="mmol",
-                 print_screen=False):
+                 print_screen=False, l_short=True):
 
         # Set logger to log all events
         self.logger = getLogger(__name__)
@@ -101,7 +101,7 @@ class Model:
             "lTemp": False,
             "lSink": False,
             "lRoot": False,
-            "lShort": True,
+            "lShort": l_short,
             "lWDep": False,
             "lScreen": print_screen,
             "AtmInf": False,
@@ -896,7 +896,7 @@ class Model:
     def add_time_info(self, tinit=0, tmax=1, dt=0.01, dtmin=1e-5, dtmax=5,
                       print_times=False, printinit=None, printmax=None,
                       dtprint=None, nsteps=None, from_atmo=False,
-                      print_array=None):
+                      print_array=None, l_short=None):
         """
         Method to produce time information.
 
@@ -941,6 +941,9 @@ class Model:
                           "lPrint": print_times, "nPrintSteps": 1,
                           "tPrintInterval": 1, "lEnter": False,
                           "TPrint(1)": None, "TPrint(MPL)": None}
+        
+        if l_short is not None:
+            self.basic_info["lShort"] = l_short
 
         if print_array is not None:
             self.time_info["MPL"] = len(print_array)
@@ -1101,7 +1104,14 @@ class Model:
             raise
 
         # Write the material parameters
-        lines.append(self.materials["water"].to_string(index=False))
+        # The materials DataFrame uses a MultiIndex (top level: 'water', 'solute' etc.).
+        # Pandas 3.0 renders the top-level index label as an extra header row which breaks
+        # Fortran parsing. We drop it here so only the parameter column names appear.
+        mat_df = self.materials.fillna(0)
+        if isinstance(mat_df.columns, MultiIndex):
+            mat_df = mat_df.copy()
+            mat_df.columns = mat_df.columns.get_level_values(-1)
+        lines.append(mat_df.to_string(index=False, justify="right"))
         lines.append("\n")
 
         # Write BLOCK C: TIME INFORMATION
@@ -1145,7 +1155,10 @@ class Model:
         if self.basic_info["lTemp"]:
             lines.append(string.format("E: HEAT TRANSPORT INFORMATION ",
                                        "*", "<", 72))
-            lines.append(self.heat_parameters.to_string(index=False))
+            _hp = self.heat_parameters.fillna(0)
+            if isinstance(_hp.columns, MultiIndex):
+                _hp = _hp.copy(); _hp.columns = _hp.columns.get_level_values(-1)
+            lines.append(_hp.to_string(index=False))
             lines.append(
                 "\n tAmpl tPeriod Campbell SnowMF lDummy lDummy lDummy "
                 "lDummy lDummy\n"
@@ -1190,13 +1203,26 @@ class Model:
                 "t" if self.solute_transport["lTort"] else "f"
             ))
 
-            # Write the material parameters
-            lines.append(self.materials["solute"].to_string(index=False))
+            # Write solute-specific material parameters for Block F.
+            # self.materials is a MultiIndex DataFrame with top-level groups like 'water' and 'solute'.
+            # Block F needs ONLY the solute columns (e.g. bulk.d, DisperL, frac, mobile_wc).
+            _full_mat = self.materials.fillna(0)
+            if isinstance(_full_mat.columns, MultiIndex) and "solute" in _full_mat.columns.get_level_values(0):
+                _sol_mat = _full_mat["solute"].copy()
+            elif isinstance(_full_mat.columns, MultiIndex):
+                _sol_mat = _full_mat.copy()
+                _sol_mat.columns = _sol_mat.columns.get_level_values(-1)
+            else:
+                _sol_mat = _full_mat
+            lines.append(_sol_mat.to_string(index=False, justify="right"))
             lines.append("\n")
 
             for sol in self.solutes:
+                _sdata = sol['data'].fillna(0)
+                if isinstance(_sdata.columns, MultiIndex):
+                    _sdata = _sdata.copy(); _sdata.columns = _sdata.columns.get_level_values(-1)
                 lines.append(f"DifW DifG\n{sol['difw']} {sol['difg']}\n"
-                             f"{sol['data'].to_string(index=False)}\n")
+                             f"{_sdata.to_string(index=False, justify='right')}\n")
 
             lines.append("kTopSolute SolTop kBotSolute SolBot\n"
                          "{} {} {} {}\n".format(
@@ -1298,7 +1324,7 @@ class Model:
         lines.append(f"\nhCritS (max. allowed pressure head at the soil "
                      f"surface)\n{self.atmosphere_info['hCritS']}\n")
 
-        lines.append(self.atmosphere.to_string(index=False))
+        lines.append(self.atmosphere.fillna(0).to_string(index=False))
         lines.append("\nend*** END OF INPUT FILE ATMOSPH.IN "
                      "**********************************\n")
         # Write the actual file
@@ -1329,7 +1355,7 @@ class Model:
                  f" {1 if self.basic_info['lChem'] else 0}"])
 
             # 2. Write the profile data
-            self.profile.to_string(file)
+            self.profile.fillna(0).to_string(file)
 
             file.writelines(
                 [f"\n{len(self.obs_nodes)}\n",

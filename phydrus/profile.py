@@ -62,6 +62,12 @@ def create_profile(top=0, bot=-1, dx=0.1, h=0, lay=1, mat=1, beta=0, ah=1.0,
         data[cols[1:]] = variables
     else:
         # If there are multiple layers
+        # If mat is a list but lay is not, default Lay to match Mat
+        # (each material = its own layer/subregion for mass balance)
+        if isinstance(mat, list) and (lay == 1 or lay is None):
+            lay = mat  # default: tie Lay to Mat for multi-layer profiles
+            variables = [h, mat, lay, beta, ah, ak, ath, temp, conc, sconc]
+
         for i, arg in enumerate(variables):
             if isinstance(arg, int) or isinstance(arg, float) or arg is None:
                 variables[i] = [arg] * len(bot)
