@@ -1,15 +1,24 @@
-"""
-Example script of how to setup a basic HYDRUS-1D model using Pydrus.
+#!/usr/bin/env python
+# coding: utf-8
 
-Author: R.A. Collenteur, University of Graz, 2019
+# In[1]:
 
-"""
-
-import os
 
 import phydrus as ps
+print(ps.__version__)
+print(ps.__dir__())
 
-ws = "example"
+
+# In[2]:
+
+
+"""
+Demonstrates a simple 1D vertical water flow simulation using phydrus 0.2.0.
+Initializes a 100cm soil column with a constant pressure head boundary.
+"""
+
+# Define the model workspace and executable path
+ws = 'small_example'
 exe = '/opt/hydrus1d/bin/hydrus'
 
 # Create the basic model
@@ -41,5 +50,10 @@ ml.write_input()
 rs = ml.simulate()
 ml.plots.profile()
 
-# df = ml.read_tlevel()
-# df['vBot[L/T]'].plot()
+
+# In[3]:
+
+
+df = ml.read_tlevel()
+df['vBot[L/T]'].plot()
+
