@@ -12,7 +12,7 @@ import pandas as pd
 import phydrus as ps
 
 ws = "example3"
-exe = os.path.join(os.getcwd(), "hydrus")
+exe = '/opt/hydrus1d/bin/hydrus'
 
 # Create the basic model
 desc = "Root uptake with meteorological data"
@@ -37,7 +37,7 @@ ml.add_profile(profile)
 
 # Atmospheric data
 atm = pd.read_csv("data/ex3.csv", index_col=0)
-atm = atm.drop("RootDepth", 1)
+atm = atm.drop("RootDepth", axis=1)
 ml.add_atmospheric_bc(atm)
 
 # Root uptake

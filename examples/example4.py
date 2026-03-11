@@ -18,7 +18,7 @@ import pandas as pd
 import phydrus as ps
 
 ws = "example4"
-exe = os.path.join(os.getcwd(), "hydrus")
+exe = '/opt/hydrus1d/bin/hydrus'
 
 # Create the basic model
 desc = "Steady state water flow in a layered soil profile"

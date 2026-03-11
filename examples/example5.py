@@ -12,7 +12,7 @@ import pandas as pd
 import phydrus as ps
 
 ws = "example5"
-exe = os.path.join(os.getcwd(), "hydrus")
+exe = '/opt/hydrus1d/bin/hydrus'
 
 # Create the basic model
 desc = "Example 5 - Grass Field Problem (Hupselse Beek 1982)"

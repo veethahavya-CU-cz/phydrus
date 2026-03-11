@@ -489,7 +489,8 @@ class Model:
                 "tBot": tbot, "Ampl": ampl, "cTop": ctop, "cBot": cbot}
 
         self.atmosphere = DataFrame(data=data, index=atmosphere.index)
-        self.atmosphere.update(atmosphere)
+        for col in atmosphere.columns:
+            self.atmosphere[col] = atmosphere[col]
 
         # Enable atmosphere module
         self.basic_info["AtmInf"] = True

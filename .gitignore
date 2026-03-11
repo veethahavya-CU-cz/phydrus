@@ -1,4 +1,5 @@
 */Ex_hydrus/*
+examples/
 
 *.o
 
@@ -23,3 +24,5 @@ phydrus.egg-info
 **/*.ipynb_checkpoints/
 
 .vscode/*
+
+.DS_Store
