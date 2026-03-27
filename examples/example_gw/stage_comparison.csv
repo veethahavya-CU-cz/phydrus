@@ -1,0 +1,4 @@
+,stage,wt_initial_cm,wt_depth_start_cm,wt_depth_end_cm,wt_depth_min_cm,wt_depth_max_cm,wt_excursion_cm,wt_rise_from_init_cm,bottom_h_min_cm,bottom_h_max_cm,bottom_stayed_sat,vBot_mean_cm_d,vBot_maxabs_cm_d
+stage1,1,-150.0,150.0,0.034000000000000696,0.012000000000000455,150.0,149.988,149.988,150.0,301.076,True,4.2978888888888884e-07,3.8681e-05
+stage2,2,-150.0,150.0,14.259,14.259,150.0,135.74099999999999,135.74099999999999,150.0,285.741,True,6.446833333333333e-07,3.8681e-05
+stage3,3,-150.0,150.0,45.8,45.8,150.0,104.2,104.2,150.0,254.2,True,0.0,0.0

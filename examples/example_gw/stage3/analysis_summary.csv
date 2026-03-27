@@ -1,0 +1,14 @@
+,value
+stage,3
+wt_initial_cm,-150.0
+wt_depth_start_cm,150.0
+wt_depth_end_cm,45.8
+wt_depth_min_cm,45.8
+wt_depth_max_cm,150.0
+wt_excursion_cm,104.2
+wt_rise_from_init_cm,104.2
+bottom_h_min_cm,150.0
+bottom_h_max_cm,254.2
+bottom_stayed_sat,True
+vBot_mean_cm_d,0.0
+vBot_maxabs_cm_d,0.0

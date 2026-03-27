@@ -4,7 +4,7 @@ SRCDIR    := src
 MCMCDIR   := src/mcmc
 BINDIR    := bin
 CC        := gfortran
-FFLAGS    := -g -ffpe-summary=none -std=legacy
+FFLAGS    := -g -ffpe-summary=none -std=legacy -ffixed-form -O2 -march=native
 LDFLAGS   ?=
 # macOS: invoke `make STRIP_RPATH=/path/to/rpath` to strip a specific rpath
 STRIP_RPATH ?=

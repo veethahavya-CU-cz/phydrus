@@ -47,8 +47,10 @@ import lmfit
 
 
 #Folder where the Hydrus files are to be stored
+#Folder where the Hydrus files are to be stored
 ws = "output"
-exe = '/opt/hydrus1d/bin/hydrus'
+phydrus_dir = os.path.dirname(ps.__file__)
+exe = os.path.abspath(os.path.join(phydrus_dir, "..", "hydrus1d", "bin", "hydrus-mcmc"))
 
 # Create model
 ml = ps.Model(exe_name=exe, ws_name=ws, name="model",
@@ -150,8 +152,15 @@ def residual(pars, data=None):
     ml.write_input()
     ml.simulate()
 
-    sum_seep=np.asarray(ml.read_tlevel()["sum(vBot)"])
-    volume = ml.read_tlevel()["Volume"]
+    sum_seep_df = ml.read_tlevel()
+    volume_df = ml.read_tlevel()
+
+    if sum_seep_df.empty or volume_df.empty:
+        print("Hydrus-1D model did not converge under the next given parameters:", ths, alfa, n, ks)
+        return data
+    
+    sum_seep = np.asarray(sum_seep_df["sum(vBot)"])
+    volume = np.asarray(volume_df["Volume"])
 
     if len(sum_seep)<(len(data)/2) or np.isnan(sum_seep).any() or np.isnan(volume).any():
         print("Hydrus-1D model did not converge under the next given parameters:", ths, alfa, n, ks)

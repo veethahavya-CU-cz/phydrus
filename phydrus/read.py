@@ -228,7 +228,9 @@ def _read_file(path, start, end="end", usecols=None, idx_col=None,
                 break
                 
         if s is None:
-            raise ValueError(f"Could not find start string '{start}' in {path}")
+            # Instead of raising an error, return an empty DataFrame so the caller can handle it
+            # (e.g., in an optimization loop where some runs might fail/crash)
+            return DataFrame()
         file.seek(0)  # Go back to start of file
 
         # Read data into a Pandas DataFrame
